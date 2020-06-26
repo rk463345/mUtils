@@ -33,12 +33,24 @@ def getFiles(dir1, dir2):
     with open('toMove.txt', 'w') as d:
         process0 = subprocess.Popen(['ls', dir1], 
                                     stdout=d, 
-                                    universal_newlines=True)    # using subprocess to create the 'dirty' output of the second directory
+                                    universal_newlines=True) # using subprocess to create the 'dirty' output of the second directory
+        try:
+            outs, errs = process0.communicate(timeout=15)
+        except TimoutExpired:
+            print("something went wrong")
+            process0.kill()
+            outs, errs = process0.communicate()
 
     with open('movies.txt', 'w') as m:
         process1 = subprocess.Popen(['ls', dir2],
                                     stdout=m,
-                                    universal_newlines=True)    # using subprocess to create the 'dirty' output of the primary direcotry
+                                    universal_newlines=True)    # using subprocess to create the 'dirty' output of the primary directory
+        try:
+            outs, errs = process1.commuicate(timeout=15)
+        except TimeoutExpired:
+            print("something went wrong")
+            process1.kill()
+            outs, errs = process1.communicate()
     os.chdir(default)   # change directory back to original 
 
 
@@ -104,39 +116,39 @@ def differ(file1, file2):
     return dupes
 
 
-def getDir(d):
+def getDir(directory):
     """
     Gets the directory names to be compared
     @returns string of path
     """
-    x = input('Input path for {}:\t'.format(d))
-    return x
+    path = input('Input path for {}:\t'.format(directory))
+    return path
 
 
 def main():
     """main"""
-    dirs = ['movie dir', 'second movie dir']
-    m = getDir(dirs[0]) # gets the primary directory
-    d = getDir(dirs[1]) # gets the secondary directory
-    x = 'toMove.txt'
-    y = 'movies.txt'
-    z = 'cleanMovies.txt'
-    w = 'cleanToMove.txt'
-    dupe = 'dupes.txt'
+    dirs = ['primary movie directory', 'secondary movie directory'] # movie directory prompts
+    primaryMoviesDirectory = getDir(dirs[0]) # gets the primary directory
+    secondaryMoviesDirectory = getDir(dirs[1]) # gets the secondary directory
+    uncleanSecondaryMoviesFile = 'toMove.txt'
+    uncleanPrimaryMoviesFile = 'movies.txt'
+    cleanPrimaryMoviesFile = 'cleanMovies.txt'
+    cleanSecondaryMoviesFile = 'cleanToMove.txt'
+    duplicateMoviesFile = 'dupes.txt'
     print('getting files')
-    getFiles(d, m)  # getting the files for comparison
+    getFiles(secondaryMoviesDirectory, primaryMoviesDirectory)  # getting the files for comparison
     time.sleep(5)   # used to allow the getFiles() subprocesses to finish before continuing
-    print('cleaning toMove file')
-    cleanFile1 = cleanFiles(x)  # cleans the secondary directory
-    writeCleanFile(w, cleanFile1)   # writes the secondary clean dir file
-    print('cleaning dataset file')
-    cleanFile2 = cleanFiles(y)      # cleans the primary directory
-    writeCleanFile(z, cleanFile2)   # writes the primary clean dir file
+    print('cleaning secondary movie file')
+    cleanSecondaryFile = cleanFiles(uncleanSecondaryMoviesFile)  # cleans the secondary directory
+    writeCleanFile(cleanSecondaryMoviesFile, cleanSecondaryFile)   # writes the secondary clean dir file
+    print('cleaning primary movie file')
+    cleanPrimaryFile = cleanFiles(uncleanPrimaryMoviesFile)      # cleans the primary directory
+    writeCleanFile(cleanPrimaryMoviesFile, cleanPrimaryFile)   # writes the primary clean dir file
     print('finding similar files')
-    final = differ(w, z)            # finds the duplicates
+    duplicateMovies = differ(cleanSecondaryMoviesFile, cleanPrimaryMoviesFile)            # finds the duplicates
     print('writing dupes file\n\n')
-    writeCleanFile(dupe, final)     # writes the duplicates to a file
-    print('The Dupes!\n Total: {}\n'.format(len(final)))    # prints the total amount of duplicates
+    writeCleanFile(duplicateMoviesFile, DuplicateMovies)     # writes the duplicates to a file
+    print('The Dupes!\n Total: {}\n'.format(len(duplicateMovies)))    # prints the total amount of duplicates
     for item in final:
         print('{}'.format(item.strip('\n')))    # prints the duplicate file names
 
