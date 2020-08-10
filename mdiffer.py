@@ -45,12 +45,12 @@ def getFiles(dir1, dir2):
         process1 = subprocess.Popen(['ls', dir2],
                                     stdout=m,
                                     universal_newlines=True)    # using subprocess to create the 'dirty' output of the primary directory
-        """try:
-            outs, errs = process1.commuicate(timeout=15)
+        try:
+            outs, errs = process1.communicate(timeout=15)
         except TimeoutExpired:
             print("something went wrong")
             process1.kill()
-            outs, errs = process1.communicate()"""
+            outs, errs = process1.communicate()
     os.chdir(default)   # change directory back to original 
 
 
