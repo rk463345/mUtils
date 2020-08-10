@@ -45,12 +45,12 @@ def getFiles(dir1, dir2):
         process1 = subprocess.Popen(['ls', dir2],
                                     stdout=m,
                                     universal_newlines=True)    # using subprocess to create the 'dirty' output of the primary directory
-        try:
+        """try:
             outs, errs = process1.commuicate(timeout=15)
         except TimeoutExpired:
             print("something went wrong")
             process1.kill()
-            outs, errs = process1.communicate()
+            outs, errs = process1.communicate()"""
     os.chdir(default)   # change directory back to original 
 
 
@@ -145,9 +145,9 @@ def main():
     cleanPrimaryFile = cleanFiles(uncleanPrimaryMoviesFile)      # cleans the primary directory
     writeCleanFile(cleanPrimaryMoviesFile, cleanPrimaryFile)   # writes the primary clean dir file
     print('finding similar files')
-    duplicateMovies = differ(cleanSecondaryMoviesFile, cleanPrimaryMoviesFile)            # finds the duplicates
+    final = duplicateMovies = differ(cleanSecondaryMoviesFile, cleanPrimaryMoviesFile)            # finds the duplicates
     print('writing dupes file\n\n')
-    writeCleanFile(duplicateMoviesFile, DuplicateMovies)     # writes the duplicates to a file
+    writeCleanFile(duplicateMoviesFile, duplicateMovies)     # writes the duplicates to a file
     print('The Dupes!\n Total: {}\n'.format(len(duplicateMovies)))    # prints the total amount of duplicates
     for item in final:
         print('{}'.format(item.strip('\n')))    # prints the duplicate file names
