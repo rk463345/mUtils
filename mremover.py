@@ -1,5 +1,4 @@
-"""removes unwanted files by extension"""
-
+#!/usr/bin/env python3
 
 import os
 
@@ -22,6 +21,7 @@ def remover(src, extension):
             currentDir = os.listdir(os.path.join(src, path))
             for item in currentDir:
                 if item.endswith(extension):
+                    print(os.path.join(src, path, item))
                     os.remove(os.path.join(src, path, item))
         os.chdir(default)
         return True
@@ -29,3 +29,16 @@ def remover(src, extension):
     except:
         return False
 
+
+def main():
+    source = input('Source Directory: ')
+    ext = input('Extension type to be removed: ')
+    removing = remover(source, ext)
+    if removing == True:
+        print('Complete')
+    else:
+        print('Something went wrong')
+
+
+if __name__ == '__main__':
+    main()

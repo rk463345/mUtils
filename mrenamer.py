@@ -26,11 +26,11 @@ def folderNameCleaner(name):
         name.remove(item)
 
     year = '(' + name.pop(-1) + ')'
-    newName = name[0]
-    for count in range(1, len(name)):
-        newName = newName + ' ' + name[count]
+    newName = ''
+    for count in range(0, len(name)):
+        newName = newName + name[count] + ' '
 
-    newName = newName + ' ' + year
+    newName = newName + year
     return newName
 
 
@@ -59,11 +59,11 @@ def fileNameCleaner(name):
         name.remove(item)
 
     year = '(' + name.pop(-1) + ')'         
-    newName = name[0]
-    for count in range(1, len(name)):
-        newName = newName + ' ' + name[count]
+    newName = ''
+    for count in range(0, len(name)):
+        newName = newName + name[count] + ' '
         
-    newName = newName + ' ' + year + extension
+    newName = newName + year + extension
     return newName
 
 
@@ -74,10 +74,11 @@ def renamer():
     for path in items:
         subItems = os.listdir(os.path.join(source, path))
         for item in subItems:
-            newFileName = fileNameCleaner(item)
-            print('renaming {} -> {}'.format(item, newFileName))
-            os.rename(os.path.join(source, path, item), 
-                      os.path.join(source, path, newFileName))
+            if item.lower() != 'subs' and item.lower() != 'sample':
+                newFileName = fileNameCleaner(item)
+                print('renaming {} -> {}'.format(item, newFileName))
+                os.rename(os.path.join(source, path, item), 
+                          os.path.join(source, path, newFileName))
         newFolderName = folderNameCleaner(path)
         print('renaming {} -> {}'.format(path, newFolderName))
         os.rename(os.path.join(source, path), 
