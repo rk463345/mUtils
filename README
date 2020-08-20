@@ -1,1 +1,9 @@
-Tool to display dupes of videos between two directories.
+Collection of Tools to manage movies.
+
+mdiffer - displays dupes between two directories.
+
+mremovier - removes files with certain extensions in a given directory
+
+mrenamer - renames the folder and movie file
+
+msymlinker - symlinks the the folder from the new location to the original location. (WIP)

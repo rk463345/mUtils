@@ -9,8 +9,10 @@ def folderNameCleaner(name):
     :returns: A str that will be the new name of the folder
     :rtype: str
     """
-    resolutions = ['480p', '720p', '1080p', '4k']
+    resolutions = ['proper', '480p', '720p', '1080p', '4k']
     afterResolution = False
+    if '.' not in name:
+        return name
     name = name.split(".")
     indexesToRemove = []
 
@@ -41,8 +43,10 @@ def fileNameCleaner(name):
     :returns: A str that will be the new name of the file
     :rtype: str
     """
-    resolutions = ['480p', '720p', '1080p', '4k']
+    resolutions = ['proper', '480p', '720p', '1080p', '4k']
     afterResolution = False
+    if '.' not in name:
+        return name
     name = name.split(".")
     extension = '.' + name.pop(-1)
     indexesToRemove = []
