@@ -2,6 +2,7 @@ import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+
 class watcher:
     def __init__(self, watchDir, sleepTimer=3600):
         self.watchDir = watchDir
@@ -14,22 +15,23 @@ class watcher:
         self.observer.start()
         try:
             while True:
-                #print("starting new cycle of checking")
+                # print("starting new cycle of checking")
                 time.sleep(self.sleepTimer)
         except:
             self.observer.stop()
-            print("\nStopping watch on directory {}".format(self.watchDir))
+            print(f"\nStopping watch on directory {self.watchDir}")
         self.observer.join()
+
 
 class handler(FileSystemEventHandler):
     def on_created(self, event):
-        print("FILE :: new file found {}".format(event.src_path))
+        print(f"FILE :: new file found {event.src_path}")
 
     def on_deleted(self, event):
-        print("DELETE :: {} deleted".format(event.src_path))
+        print(f"DELETE :: {event.src_path} deleted")
 
     def on_moved(self, event):
-        print("MOVE :: {} -> {}".format(event.src_path, event.dest_path))
+        print(f"MOVE :: {event.src_path} -> {event.dest_path}")
 
     def on_any_event(self, event):
         if event.is_directory:
@@ -37,7 +39,8 @@ class handler(FileSystemEventHandler):
         else:
             print("ERROR :: an unknown event occured")
 
+
 if __name__ == "__main__":
     src_path = "/home/beerbin/mdiffer/log"
-    watch = watcher()
+    watch = watcher()  #TODO Add watch dir
     watch.run()
