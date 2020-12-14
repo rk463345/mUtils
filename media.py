@@ -1,26 +1,24 @@
 class MediaObject:
-
     def __init__(self, location, name):
         self.location = location
         self.name = name
         self.finalLocation = None
         self.finalname = None
 
-    def getFinalLocation():
+    def getFinalLocation(self):
         return self.finalLocation
 
-    def getName():
+    def getName(self):
         return self.name
 
-    def getFinalName():
+    def getFinalName(self):
         return self.finalname
 
-    def getLocation():
+    def getLocation(self):
         return self.location
 
-    def setFinalLocation(newLocation):
+    def setFinalLocation(self, newLocation):
         self.finalLocation = newLocation
 
-    def setFinalName(newName):
+    def setFinalName(self, newName):
         self.finalname = newName
-
