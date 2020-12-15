@@ -5,6 +5,9 @@
 
 
 black:
-	black ./*.py
+	pipenv run black ./*.py
+
+devdeps:
+	pipenv install --dev
 
 # end
