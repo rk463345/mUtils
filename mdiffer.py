@@ -36,7 +36,7 @@ def getFiles(dir1, dir2):
                                     universal_newlines=True) # using subprocess to create the 'dirty' output of the second directory
         try:
             outs, errs = process0.communicate(timeout=15)
-        except TimoutExpired:
+        except subprocess.TimoutExpired:
             print("something went wrong")
             process0.kill()
             outs, errs = process0.communicate()
@@ -47,7 +47,7 @@ def getFiles(dir1, dir2):
                                     universal_newlines=True)    # using subprocess to create the 'dirty' output of the primary directory
         try:
             outs, errs = process1.communicate(timeout=15)
-        except TimeoutExpired:
+        except subprocess.TimeoutExpired:
             print("something went wrong")
             process1.kill()
             outs, errs = process1.communicate()
