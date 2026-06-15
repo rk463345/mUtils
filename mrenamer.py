@@ -49,6 +49,9 @@ class RenameResult:
     operations: list
     dry_run: bool
     error: str = ''
+    applied_operations: list = None
+    rolled_back_operations: list = None
+    rollback_errors: list = None
 
     def __bool__(self):
         return self.success
@@ -152,6 +155,12 @@ def _validate_plan(operations):
     for operation in operations:
         src_key = _path_key(operation.src)
         dst_key = _path_key(operation.dst)
+
+        if not os.path.lexists(operation.src):
+            raise RenamePlanError(
+                'source no longer exists: {}'.format(operation.src)
+            )
+
         if dst_key in destinations and dst_key != src_key:
             raise RenamePlanError(
                 'multiple renames target the same path: {}'.format(operation.dst)
@@ -235,13 +244,15 @@ def _rename_path(src, dst):
 
 def _rollback(applied):
     """Best-effort rollback for already-applied rename operations."""
+    rolled_back = []
     rollback_errors = []
     for operation in reversed(applied):
         try:
             _rename_path(operation.dst, operation.src)
+            rolled_back.append(operation)
         except OSError as exc:
             rollback_errors.append('{}: {}'.format(operation.dst, exc))
-    return rollback_errors
+    return rolled_back, rollback_errors
 
 
 def renamer(source, dry_run=False):
@@ -261,7 +272,7 @@ def renamer(source, dry_run=False):
     try:
         operations = build_rename_plan(source)
     except RenamePlanError as exc:
-        return RenameResult(False, [], dry_run, str(exc))
+        return RenameResult(False, [], dry_run, str(exc), [], [], [])
 
     applied = []
     for operation in operations:
@@ -270,22 +281,45 @@ def renamer(source, dry_run=False):
                 _rename_path(operation.src, operation.dst)
                 applied.append(operation)
             except OSError as exc:
-                rollback_errors = _rollback(applied)
+                rolled_back, rollback_errors = _rollback(applied)
                 error = str(exc)
                 if rollback_errors:
                     error = '{}; rollback errors: {}'.format(
                         error,
                         '; '.join(rollback_errors)
                     )
-                return RenameResult(False, operations, dry_run, error)
+                return RenameResult(
+                    False,
+                    operations,
+                    dry_run,
+                    error,
+                    applied[:],
+                    rolled_back,
+                    rollback_errors
+                )
 
-    return RenameResult(True, operations, dry_run)
+    applied_operations = [] if dry_run else applied[:]
+    return RenameResult(True, operations, dry_run, '',
+                        applied_operations, [], [])
 
 
 def format_rename_result(result):
     """Return human-readable output for a :class:`RenameResult`."""
     if not result.success:
-        return 'Error: {}'.format(result.error)
+        lines = ['Error: {}'.format(result.error)]
+        if result.applied_operations:
+            lines.append('Applied before failure: {}'.format(
+                len(result.applied_operations)
+            ))
+        if result.rolled_back_operations:
+            lines.append('Rolled back: {}'.format(
+                len(result.rolled_back_operations)
+            ))
+        if result.rollback_errors:
+            lines.append('Rollback errors: {}'.format(
+                len(result.rollback_errors)
+            ))
+        return '\n'.join(lines)
 
     action = 'Would rename' if result.dry_run else 'Renamed'
     lines = ['{} item(s): {}'.format(action, len(result.operations))]

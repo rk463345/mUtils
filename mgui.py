@@ -13,16 +13,22 @@ Usage::
 import sys
 import threading
 
+TK_ERROR_MESSAGE = (
+    'tkinter is required but not installed.\n'
+    '  macOS:   brew install python-tk\n'
+    '  Ubuntu:  sudo apt install python3-tk\n'
+    '  Windows: re-run the Python installer and enable Tcl/Tk\n'
+)
+
 try:
     import tkinter as tk
     from tkinter import filedialog, messagebox, scrolledtext, ttk
 except ImportError:
-    sys.exit(
-        'tkinter is required but not installed.\n'
-        '  macOS:   brew install python-tk\n'
-        '  Ubuntu:  sudo apt install python3-tk\n'
-        '  Windows: re-run the Python installer and enable Tcl/Tk\n'
-    )
+    tk = None
+    filedialog = None
+    messagebox = None
+    scrolledtext = None
+    ttk = None
 
 # Import logic functions (not main()) from each tool so the originals are
 # never modified and can still be used standalone.
@@ -51,12 +57,28 @@ def _run_task(fn):
     return '' if result is None else str(result)
 
 
+def _run_mremover_task(src, ext, dry_run, exclude_raw=''):
+    """Run mremover with UI-provided values and return displayable text."""
+    result = mremover.remover(
+        src,
+        ext,
+        dry_run=dry_run,
+        exclude_paths=mremover.parse_exclude_paths(exclude_raw)
+    )
+    return mremover.format_remove_result(result)
+
+
 # ── Main application window ───────────────────────────────────────────────────
 
-class MUtilsApp(tk.Tk):
+_TK_BASE = tk.Tk if tk is not None else object
+
+
+class MUtilsApp(_TK_BASE):
     """Root window for the mUtils GUI."""
 
     def __init__(self):
+        if tk is None:
+            raise RuntimeError(TK_ERROR_MESSAGE)
         super().__init__()
         self.title('mUtils — Movie Management Tools')
         self.geometry('740x560')
@@ -260,12 +282,19 @@ class MUtilsApp(tk.Tk):
 
         self._rem_dir = self._dir_row(form, 'Source Directory:', 0)
         self._rem_ext = self._text_row(form, 'Extension:', 1, default='.nfo', width=12)
+        self._rem_exclude = self._text_row(
+            form,
+            'Exclude Paths:',
+            2,
+            default='',
+            width=42
+        )
 
         self._rem_dryrun = tk.BooleanVar(value=True)
         ttk.Checkbutton(
             form, text='Dry run — preview only, no files will be deleted',
             variable=self._rem_dryrun
-        ).grid(row=2, column=0, columnspan=3, sticky='w', pady=6)
+        ).grid(row=3, column=0, columnspan=3, sticky='w', pady=6)
 
         btn = ttk.Button(outer, text='Remove Files',
                          style='Run.TButton', command=lambda: self._run_mremover(btn))
@@ -277,6 +306,7 @@ class MUtilsApp(tk.Tk):
         """Validate inputs, confirm if not dry-run, then execute mremover."""
         src = self._rem_dir.get().strip()
         ext = self._rem_ext.get().strip()
+        exclude_raw = self._rem_exclude.get().strip()
         dry_run = self._rem_dryrun.get()
 
         if not src:
@@ -294,8 +324,7 @@ class MUtilsApp(tk.Tk):
         self._clear(self._rem_out)
 
         def task():
-            result = mremover.remover(src, ext, dry_run=dry_run)
-            return mremover.format_remove_result(result)
+            return _run_mremover_task(src, ext, dry_run, exclude_raw)
 
         self._run(task, self._rem_out, btn)
 
@@ -395,7 +424,10 @@ class MUtilsApp(tk.Tk):
 
 def main():
     """Launch the mUtils graphical interface."""
-    app = MUtilsApp()
+    try:
+        app = MUtilsApp()
+    except RuntimeError as exc:
+        sys.exit(str(exc))
     app.mainloop()
 
 

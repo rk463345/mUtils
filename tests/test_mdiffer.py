@@ -25,7 +25,7 @@ def test_clean_names_leaves_non_trailing_year_text():
 
 def test_find_duplicates_is_case_insensitive_by_default():
     assert mdiffer.find_duplicates(
-        ['movie title', 'Other Movie'],
+        ['movie title', 'MOVIE TITLE', 'Other Movie'],
         ['Movie Title'],
     ) == ['Movie Title']
 

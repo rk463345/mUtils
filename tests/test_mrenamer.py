@@ -44,10 +44,27 @@ def test_build_rename_plan_rejects_existing_destination(tmp_path):
         raise AssertionError('expected RenamePlanError')
 
 
-def test_validate_plan_allows_case_only_rename():
+def test_validate_plan_rejects_missing_source(tmp_path):
     operation = mrenamer.RenameOperation(
-        'Movie Name (2023)',
-        'movie name (2023)',
+        str(tmp_path / 'missing.mkv'),
+        str(tmp_path / 'renamed.mkv'),
+        'file'
+    )
+
+    try:
+        mrenamer._validate_plan([operation])
+    except mrenamer.RenamePlanError as exc:
+        assert 'source no longer exists' in str(exc)
+    else:
+        raise AssertionError('expected RenamePlanError')
+
+
+def test_validate_plan_allows_case_only_rename(tmp_path):
+    source = tmp_path / 'Movie Name (2023)'
+    source.mkdir()
+    operation = mrenamer.RenameOperation(
+        str(source),
+        str(tmp_path / 'movie name (2023)'),
         'folder'
     )
 
@@ -94,6 +111,9 @@ def test_renamer_rolls_back_file_when_folder_rename_fails(tmp_path, monkeypatch)
 
     assert result.success is False
     assert 'simulated folder failure' in result.error
+    assert len(result.applied_operations) == 1
+    assert len(result.rolled_back_operations) == 1
+    assert result.rollback_errors == []
     assert folder.exists()
     assert movie_file.exists()
     assert not (folder / 'Movie Name (2023).mkv').exists()

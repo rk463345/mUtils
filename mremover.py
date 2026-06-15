@@ -30,6 +30,17 @@ def _normalize_extension(extension):
     return extension
 
 
+def parse_exclude_paths(raw):
+    """Parse comma-separated exclusion paths from user input."""
+    if not raw:
+        return []
+    return [
+        path.strip()
+        for path in raw.split(',')
+        if path.strip()
+    ]
+
+
 def _path_key(path):
     """Return an absolute normalized path key."""
     return os.path.normcase(os.path.abspath(path))
@@ -124,17 +135,26 @@ def main():
     """Entry point for mremover."""
     source = input('Source Directory: ')
     ext = input('Extension type to be removed (e.g. .nfo): ')
+    exclude_raw = input('Paths to exclude, comma-separated (optional): ')
+    exclude_paths = parse_exclude_paths(exclude_raw)
 
     preview = input('Preview files before deleting? [y/n]: ').strip().lower()
     if preview == 'y':
         print('\n--- Dry run ---')
-        print(format_remove_result(remover(source, ext, dry_run=True)))
+        print(format_remove_result(
+            remover(source, ext, dry_run=True, exclude_paths=exclude_paths)
+        ))
         confirm = input('\nProceed with deletion? [y/n]: ').strip().lower()
         if confirm != 'y':
             print('Aborted.')
             sys.exit(0)
+    else:
+        confirm = input('Delete without preview? Type DELETE to continue: ').strip()
+        if confirm != 'DELETE':
+            print('Aborted.')
+            sys.exit(0)
 
-    result = remover(source, ext)
+    result = remover(source, ext, exclude_paths=exclude_paths)
     print(format_remove_result(result))
     if result:
         print('Complete.')

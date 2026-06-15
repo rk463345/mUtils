@@ -20,11 +20,15 @@ are preserved by creating a new suffixed file when needed.
 
 mremover - recursively removes files with a given extension from a directory,
 including matching files directly inside the source directory. Extension
-matching is case-insensitive by default. Use the preview prompt before deleting.
+matching is case-insensitive by default. Optional comma-separated exclusions can
+skip protected paths. Use the preview prompt before deleting; deleting without a
+preview requires typing `DELETE`.
 
 mrenamer - renames scene-style movie folders and files to the `Title (Year)`
 format. If a rename fails after earlier renames have succeeded, the tool
-attempts to roll back the completed renames.
+attempts to roll back the completed renames and reports what was applied and
+rolled back. Exact entries named `subs` or `sample` are skipped because scene
+releases commonly use those names for non-movie content.
 
 msymlinker - symlinks a folder from a new location to the original location.
 On Windows, symlink creation may require Developer Mode or an elevated shell.

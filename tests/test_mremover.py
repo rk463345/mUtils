@@ -1,3 +1,5 @@
+import pytest
+
 import mremover
 
 
@@ -12,6 +14,14 @@ def test_remover_rejects_empty_extension(tmp_path):
     assert result.success is False
     assert 'extension must not be empty' in result.error
     assert target.exists()
+
+
+def test_parse_exclude_paths_handles_commas_and_empty_values():
+    assert mremover.parse_exclude_paths(' one, two ,, three ') == [
+        'one',
+        'two',
+        'three',
+    ]
 
 
 def test_remover_normalizes_extension(tmp_path):
@@ -73,3 +83,22 @@ def test_remover_skips_excluded_paths(tmp_path):
     assert result.removed_paths == [str(remove)]
     assert keep.exists()
     assert not remove.exists()
+
+
+def test_main_requires_delete_confirmation_without_preview(monkeypatch, tmp_path):
+    target = tmp_path / 'remove.nfo'
+    target.write_text('data')
+    answers = iter([
+        str(tmp_path),
+        '.nfo',
+        '',
+        'n',
+        'nope',
+    ])
+    monkeypatch.setattr('builtins.input', lambda _: next(answers))
+
+    with pytest.raises(SystemExit) as exc:
+        mremover.main()
+
+    assert exc.value.code == 0
+    assert target.exists()

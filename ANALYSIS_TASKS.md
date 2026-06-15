@@ -28,3 +28,16 @@
 - [x] Absolutize `msymlinker` link paths in structured results.
 - [x] Document install and test commands such as `uv run pytest` in the README.
 - [x] Consider moving the top-level scripts into a package/module layout if the toolset keeps growing.
+
+## Additional Analysis Tasks
+
+- [x] Expose `mremover` exclusions through CLI, GUI, and TUI workflows.
+- [x] Require explicit confirmation when deleting with `mremover` without a preview.
+- [x] Report `mrenamer` applied and rolled-back operations in structured results.
+- [x] Validate each planned `mrenamer` source path before applying renames.
+- [x] Document the `mrenamer` `subs` and `sample` skip policy.
+- [x] Deduplicate repeated `mdiffer` duplicate results.
+- [x] Use more precise `mdiffer` fallback output filenames.
+- [x] Add workflow-level tests for GUI/TUI remover wrappers.
+- [x] Make `mgui` safe to import in headless environments.
+- [x] Keep the current flat script layout documented until the toolset grows enough to justify packaging.

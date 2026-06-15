@@ -104,11 +104,15 @@ def find_duplicates(secondary, primary, case_sensitive=False):
     primary_by_key = {}
     for name in primary:
         primary_by_key.setdefault(_match_key(name, case_sensitive), name)
-    return [
-        primary_by_key[_match_key(name, case_sensitive)]
-        for name in secondary
-        if _match_key(name, case_sensitive) in primary_by_key
-    ]
+
+    duplicates = []
+    seen = set()
+    for name in secondary:
+        key = _match_key(name, case_sensitive)
+        if key in primary_by_key and key not in seen:
+            duplicates.append(primary_by_key[key])
+            seen.add(key)
+    return duplicates
 
 
 def _available_path(directory, stem, extension):
@@ -117,7 +121,7 @@ def _available_path(directory, stem, extension):
     if not os.path.exists(path):
         return path
 
-    timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+    timestamp = datetime.now().strftime('%Y%m%d-%H%M%S-%f')
     path = os.path.join(directory, '{}-{}{}'.format(stem, timestamp, extension))
     if not os.path.exists(path):
         return path

@@ -206,6 +206,17 @@ def _run_tool(fn):
     return '' if result is None else str(result)
 
 
+def _run_mremover_task(src, ext, dry_run, exclude_raw=''):
+    """Run mremover with TUI-provided values and return displayable text."""
+    result = mremover.remover(
+        src,
+        ext,
+        dry_run=dry_run,
+        exclude_paths=mremover.parse_exclude_paths(exclude_raw)
+    )
+    return mremover.format_remove_result(result)
+
+
 # ── Tool screens ──────────────────────────────────────────────────────────────
 
 def _screen_header(win, title, subtitle):
@@ -279,20 +290,26 @@ def screen_mremover(win):
     if not ext:
         return
 
-    dry_raw = _input_field(win, 10, 2, 'Dry run? [Y/n]:        ', prefill='Y')
+    exclude_raw = _input_field(win, 10, 2, 'Exclude paths:       ')
+
+    dry_raw = _input_field(win, 12, 2, 'Dry run? [Y/n]:       ', prefill='Y')
     dry_run = dry_raw.strip().lower() not in ('n', 'no')
 
-    _safe_addstr(win, 12, 2, 'Running…  ', curses.A_BOLD)
+    if not dry_run:
+        confirm = _input_field(win, 14, 2, 'Type DELETE:         ')
+        if confirm != 'DELETE':
+            return
+
+    run_y = 16 if not dry_run else 14
+    _safe_addstr(win, run_y, 2, 'Running…  ', curses.A_BOLD)
     win.refresh()
 
     output = _run_tool(
-        lambda: mremover.format_remove_result(
-            mremover.remover(src, ext, dry_run=dry_run)
-        )
+        lambda: _run_mremover_task(src, ext, dry_run, exclude_raw)
     )
 
-    _safe_addstr(win, 12, 2, ' ' * 12)
-    _show_output(win, output, 13)
+    _safe_addstr(win, run_y, 2, ' ' * 12)
+    _show_output(win, output, run_y + 1)
     _wait_for_key(win, height, width)
 
 
