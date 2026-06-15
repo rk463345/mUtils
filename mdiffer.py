@@ -1,156 +1,138 @@
 #!/usr/bin/env python3
+"""mdiffer — Identifies duplicate movie folders between two directories."""
 
-import subprocess
 import os
-import time
+import re
+import sys
+
+LOG_DIR = './log'
+OUTPUT_DIR = './output'
+TRAILING_YEAR_RE = re.compile(r'\s+\(\d{4}\)$')
 
 
 def setup():
+    """Create the output and log directories if they do not already exist.
+
+    :raises SystemExit: If the directories cannot be created due to a
+        permissions error or other OS-level failure.
     """
-    If the output and log folders do not exist they are created
-    """
-    if (os.path.exists('./output')==False) or (os.path.exists('./log')==False):     # checks to see if directories for ouput exist
-        print('creating dirs')
-        with open('initialization.txt', 'w') as start:
-            try:
-                output = subprocess.Popen(['mkdir', 'output'], stdout=start, universal_newlines=True)   # creates the output directory
-                log = subprocess.Popen(['mkdir', 'log'], stdout=start, universal_newlines=True)         # creates the log directory
-            except:
-                print('Something seems to have gone wrong. Check initialization.txt')
-    else:
-        print('setup complete')
+    try:
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        os.makedirs(LOG_DIR, exist_ok=True)
+        print('Setup complete.')
+    except OSError as e:
+        print('Error during setup: {}'.format(e))
+        sys.exit(1)
 
 
-def getFiles(dir1, dir2):
-    """
-    Gathers the name of the folders located in dir1 and dir2.
-    Creates the files that need to be cleaned.
-    dir1 is the the second movie directory.
-    dir2 is the primary movie directory.
-    """
-    default = os.getcwd()   # sets the default directory as the location of the mdiffer.py
-    os.chdir('./output')    # changes direcotory to the output folder
-    with open('toMove.txt', 'w') as d:
-        process0 = subprocess.Popen(['ls', dir1], 
-                                    stdout=d, 
-                                    universal_newlines=True) # using subprocess to create the 'dirty' output of the second directory
-        try:
-            outs, errs = process0.communicate(timeout=15)
-        except subprocess.TimoutExpired:
-            print("something went wrong")
-            process0.kill()
-            outs, errs = process0.communicate()
+def get_dir_listing(directory):
+    """Return a list of entry names in the given directory.
 
-    with open('movies.txt', 'w') as m:
-        process1 = subprocess.Popen(['ls', dir2],
-                                    stdout=m,
-                                    universal_newlines=True)    # using subprocess to create the 'dirty' output of the primary directory
-        try:
-            outs, errs = process1.communicate(timeout=15)
-        except subprocess.TimeoutExpired:
-            print("something went wrong")
-            process1.kill()
-            outs, errs = process1.communicate()
-    os.chdir(default)   # change directory back to original 
+    :param directory: Absolute or relative path to the directory to list.
+    :type directory: str
+    :returns: List of file and folder names inside *directory*.
+    :rtype: list
+    :raises SystemExit: If *directory* does not exist or cannot be read.
+    """
+    if not os.path.isdir(directory):
+        print('Error: "{}" is not a valid directory.'.format(directory))
+        sys.exit(1)
+    return os.listdir(directory)
 
 
-def cleanFiles(direct):
+def clean_names(names, log=None):
+    """Strip a trailing release year from a list of folder names.
+
+    Expects names formatted as ``Movie Title (YYYY)``.  Only a final
+    four-digit year in parentheses is removed; other parenthetical text is
+    left unchanged.
+    Cleaned mappings are optionally written to an open log file handle.
+
+    :param names: Raw list of folder or file names to clean.
+    :type names: list
+    :param log: An open, writable file object for logging changes.
+        Pass ``None`` to disable logging.
+    :type log: file or None
+    :returns: List of cleaned names with years removed where applicable.
+    :rtype: list
     """
-    removes the year and trailing white space, if there is a year
-    direct holds the file name for the file of the contents of the directory
-    @return list of the cleaned data 
-    """
-    default = os.getcwd()       # set default directory as the location of mdiffer.py
-    os.chdir('./output')        # change directory to ouput folder
-    f = open(direct, 'r')       # opens a 'dirty' directory for read only
-    contents = f.readlines()
-    f.close()
-    os.chdir('../log')          # change directory for logging
-    log = open('log.txt', 'w')  # opens log file
-    for i in range(0, len(contents)):               
-        contents[i] = contents[i].strip('\n')       # remove trailing \n
-        if '(' in contents[i] or ')' in contents[i]:    # if '(' or ')'exists in the file name to signify if there is a year
-            temp = contents[i]                          # holds the name of the movie for logging purposes
-            contents[i] = contents[i][:-7]              # truncates the string to remove year and trailing whitespace
-            log.write('Removing date from {} -> {}\n'.format(temp, contents[i]))       # writes to the log file 
-    log.close()
-    os.chdir(default)       # changes back to dir of mdiffer.py
-    return contents
+    cleaned = []
+    for name in names:
+        stripped = TRAILING_YEAR_RE.sub('', name)
+        if stripped != name:
+            if log is not None:
+                log.write('Removing date from {} -> {}\n'.format(name, stripped))
+        cleaned.append(stripped)
+    return cleaned
 
 
-def writeCleanFile(file1, items):
+def find_duplicates(secondary, primary):
+    """Find names that appear in both the secondary and primary lists.
+
+    Uses a set for O(n) average-case lookup instead of O(n^2) nested loops,
+    which is significantly faster for large movie libraries.
+
+    :param secondary: Cleaned names from the secondary movie directory.
+    :type secondary: list
+    :param primary: Cleaned names from the primary movie directory.
+    :type primary: list
+    :returns: List of names present in both *secondary* and *primary*.
+    :rtype: list
     """
-    writes a cleaned list to the file
-    file1 is the name of the output file
-    items is the list of the cleaned names
-    """
-    default = os.getcwd()   # set default directory as the location of mdiffer.py
-    os.chdir('./output')    # change directory to output
-    with open(file1, 'w') as cleanFile:
-        for item in items:  # loop that writes all of the items to a clean file
-            cleanFile.write('{}\n'.format(item))
-    os.chdir(default)       # change directory to default directory
+    primary_set = set(primary)
+    return [name for name in secondary if name in primary_set]
 
 
-def differ(file1, file2):
+def write_results(duplicates):
+    """Write the list of duplicate names to ``output/dupes.txt``.
+
+    :param duplicates: List of duplicate movie folder names to write.
+    :type duplicates: list
     """
-    finds the duplicate file names between the two files
-    file1 is the movies that are in the second directory
-    file2 is the movies that are in the primary directory
-    @returns list containing duplicates
-    """
-    default = os.getcwd()   # set default directory as the location of mdiffer
-    os.chdir('./output')    # change directory to output folder
-    f1 = open(file1, 'r')
-    contentsF1 = f1.readlines() # get the contents of second directory
-    f1.close()
-    f2 = open(file2, 'r')
-    contentsF2 = f2.readlines() # get the contents of the primary directory
-    f2.close()
-    dupes = [] # initialize the dupes list
-    for item in contentsF1:     # bad nested loops for comparing the contents of the two directories
-        for thing in contentsF2:
-            if item == thing:
-                dupes.append(item)  # appending duplicate file names to the dupes list
-    os.chdir(default)   # change back to default directory
-    return dupes
+    output_path = os.path.join(OUTPUT_DIR, 'dupes.txt')
+    with open(output_path, 'w') as f:
+        for name in duplicates:
+            f.write('{}\n'.format(name))
 
 
-def getDir(directory):
+def get_dir(prompt):
+    """Prompt the user to enter a directory path.
+
+    :param prompt: Human-readable label describing the directory being requested.
+    :type prompt: str
+    :returns: The path string entered by the user.
+    :rtype: str
     """
-    Gets the directory names to be compared
-    @returns string of path
-    """
-    path = input('Input path for {}:\t'.format(directory))
-    return path
+    return input('Input path for {}:\t'.format(prompt))
 
 
 def main():
-    """main"""
-    dirs = ['primary movie directory', 'secondary movie directory'] # movie directory prompts
-    primaryMoviesDirectory = getDir(dirs[0]) # gets the primary directory
-    secondaryMoviesDirectory = getDir(dirs[1]) # gets the secondary directory
-    uncleanSecondaryMoviesFile = 'toMove.txt'
-    uncleanPrimaryMoviesFile = 'movies.txt'
-    cleanPrimaryMoviesFile = 'cleanMovies.txt'
-    cleanSecondaryMoviesFile = 'cleanToMove.txt'
-    duplicateMoviesFile = 'dupes.txt'
-    print('getting files')
-    getFiles(secondaryMoviesDirectory, primaryMoviesDirectory)  # getting the files for comparison
-    time.sleep(5)   # used to allow the getFiles() subprocesses to finish before continuing
-    print('cleaning secondary movie file')
-    cleanSecondaryFile = cleanFiles(uncleanSecondaryMoviesFile)  # cleans the secondary directory
-    writeCleanFile(cleanSecondaryMoviesFile, cleanSecondaryFile)   # writes the secondary clean dir file
-    print('cleaning primary movie file')
-    cleanPrimaryFile = cleanFiles(uncleanPrimaryMoviesFile)      # cleans the primary directory
-    writeCleanFile(cleanPrimaryMoviesFile, cleanPrimaryFile)   # writes the primary clean dir file
-    print('finding similar files')
-    final = duplicateMovies = differ(cleanSecondaryMoviesFile, cleanPrimaryMoviesFile)            # finds the duplicates
-    print('writing dupes file\n\n')
-    writeCleanFile(duplicateMoviesFile, duplicateMovies)     # writes the duplicates to a file
-    print('The Dupes!\n Total: {}\n'.format(len(duplicateMovies)))    # prints the total amount of duplicates
-    for item in final:
-        print('{}'.format(item.strip('\n')))    # prints the duplicate file names
+    """Entry point for mdiffer."""
+    setup()
 
-if __name__=='__main__':    # duh
+    primary_dir = get_dir('primary movie directory')
+    secondary_dir = get_dir('secondary movie directory')
+
+    print('Reading directories...')
+    primary_names = get_dir_listing(primary_dir)
+    secondary_names = get_dir_listing(secondary_dir)
+
+    print('Cleaning names...')
+    log_path = os.path.join(LOG_DIR, 'log.txt')
+    with open(log_path, 'w') as log:
+        clean_primary = clean_names(primary_names, log)
+        clean_secondary = clean_names(secondary_names, log)
+
+    print('Finding duplicates...')
+    duplicates = find_duplicates(clean_secondary, clean_primary)
+
+    print('Writing results...')
+    write_results(duplicates)
+
+    print('\nDone! Total duplicates found: {}\n'.format(len(duplicates)))
+    for name in duplicates:
+        print(name)
+
+
+if __name__ == '__main__':
     main()

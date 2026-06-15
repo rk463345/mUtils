@@ -1,90 +1,238 @@
-""" renaming of movies """
+#!/usr/bin/env python3
+"""mrenamer — Renames movie folders and their contents to a clean format.
+
+Converts dot-separated scene-style names such as::
+
+    Movie.Name.2023.1080p.BluRay.x264-GROUP/
+        Movie.Name.2023.1080p.BluRay.x264-GROUP.mkv
+
+into human-readable names::
+
+    Movie Name (2023)/
+        Movie Name (2023).mkv
+"""
 
 import os
+import re
+import sys
+from dataclasses import dataclass
 
-def folderNameCleaner(name):
-    """cleans up the name for the folder that holds the file
-    :param name: The name of the folder to be rename
-    :type name: str
-    :returns: A str that will be the new name of the folder
+#: Resolution and quality tags that mark the end of the movie title.
+#: Everything from the first matching tag onward is discarded.
+RESOLUTIONS = frozenset({'proper', '480p', '720p', '1080p', '2160p', '4k'})
+
+#: Sub-folder and sample file names to skip during file renaming.
+SKIP_NAMES = frozenset({'subs', 'sample'})
+
+YEAR_RE = re.compile(r'^\d{4}$')
+
+
+@dataclass(frozen=True)
+class RenameOperation:
+    """One planned filesystem rename."""
+
+    src: str
+    dst: str
+    kind: str
+
+
+class RenamePlanError(ValueError):
+    """Raised when a rename plan cannot be applied safely."""
+
+
+def _strip_encoding_tags(parts):
+    """Remove resolution/encoding tags and all tokens that follow them.
+
+    Iterates *parts* and stops collecting tokens as soon as one matches an
+    entry in :data:`RESOLUTIONS` (case-insensitive).
+
+    :param parts: Dot-split segments of a file or folder name, excluding
+        the file extension and the year token.
+    :type parts: list
+    :returns: Trimmed list of title-word segments.
+    :rtype: list
+    """
+    result = []
+    for part in parts:
+        if part.lower() in RESOLUTIONS:
+            break
+        result.append(part)
+    return result
+
+
+def _format_clean_name(parts):
+    """Join title segments and wrap the trailing year token in parentheses.
+
+    Expects the last element of *parts* to be the four-digit year.  Validates
+    the year, wraps it, then joins the remaining tokens with spaces.
+
+    :param parts: List of name segments where the final element is the year.
+    :type parts: list
+    :returns: Human-readable title string in ``Title Words (YYYY)`` format.
     :rtype: str
     """
-    resolutions = ['proper', '480p', '720p', '1080p', '4k']
-    afterResolution = False
+    if len(parts) < 2 or not YEAR_RE.match(parts[-1]):
+        return None
+
+    title_parts = [part for part in parts[:-1] if part]
+    if not title_parts:
+        return None
+
+    return '{} ({})'.format(' '.join(title_parts), parts[-1])
+
+
+def _clean_scene_stem(name):
+    """Return a clean scene-style name stem, or *name* if invalid."""
     if '.' not in name:
         return name
-    name = name.split(".")
-    indexesToRemove = []
+    parts = _strip_encoding_tags(name.split('.'))
+    cleaned = _format_clean_name(parts)
+    return cleaned if cleaned is not None else name
 
-    for item in name:
-        if afterResolution == True:
-            indexesToRemove.append(item)
 
-        if item in resolutions:
-            afterResolution = True
-            indexesToRemove.append(item)
+def folderNameCleaner(name):
+    """Return a clean folder name derived from a scene-style dot-separated name.
 
-    for item in indexesToRemove:
-        name.remove(item)
+    If the name contains no dots it is returned unchanged.  Otherwise,
+    resolution tags and everything after them are stripped, and the year
+    is wrapped in parentheses.
 
-    year = '(' + name.pop(-1) + ')'
-    newName = ''
-    for count in range(0, len(name)):
-        newName = newName + name[count] + ' '
-
-    newName = newName + year
-    return newName
+    :param name: The raw folder name to clean (e.g.
+        ``Movie.Name.2023.1080p.BluRay``).
+    :type name: str
+    :returns: Cleaned folder name (e.g. ``Movie Name (2023)``), or *name*
+        unchanged if it contains no dots.
+    :rtype: str
+    """
+    return _clean_scene_stem(name)
 
 
 def fileNameCleaner(name):
-    """cleans up the name for the file and preserves the file extension
-    :param name: The name of the file that needs to be renamed
+    """Return a clean file name derived from a scene-style dot-separated name.
+
+    Behaves like :func:`folderNameCleaner` but preserves the original file
+    extension.  If the name contains no dots it is returned unchanged.
+
+    :param name: The raw file name to clean (e.g.
+        ``Movie.Name.2023.1080p.BluRay.mkv``).
     :type name: str
-    :returns: A str that will be the new name of the file
+    :returns: Cleaned file name with extension (e.g.
+        ``Movie Name (2023).mkv``), or *name* unchanged if it contains no dots.
     :rtype: str
     """
-    resolutions = ['proper', '480p', '720p', '1080p', '4k']
-    afterResolution = False
-    if '.' not in name:
+    stem, extension = os.path.splitext(name)
+    if not extension or '.' not in stem:
         return name
-    name = name.split(".")
-    extension = '.' + name.pop(-1)
-    indexesToRemove = []
-
-    for item in name:              
-        if afterResolution == True:        
-            indexesToRemove.append(item)            
-
-        if item in resolutions:
-            afterResolution = True
-            indexesToRemove.append(item)
-    
-    for item in indexesToRemove:
-        name.remove(item)
-
-    year = '(' + name.pop(-1) + ')'         
-    newName = ''
-    for count in range(0, len(name)):
-        newName = newName + name[count] + ' '
-        
-    newName = newName + year + extension
-    return newName
+    cleaned = _clean_scene_stem(stem)
+    return cleaned + extension if cleaned != stem else name
 
 
-def renamer():
-    """renames the folder and file"""
-    source = input("Source Directory: ")
-    items = os.listdir(source)
-    for path in items:
-        subItems = os.listdir(os.path.join(source, path))
-        for item in subItems:
-            if item.lower() != 'subs' and item.lower() != 'sample':
-                newFileName = fileNameCleaner(item)
-                print('renaming {} -> {}'.format(item, newFileName))
-                os.rename(os.path.join(source, path, item), 
-                          os.path.join(source, path, newFileName))
-        newFolderName = folderNameCleaner(path)
-        print('renaming {} -> {}'.format(path, newFolderName))
-        os.rename(os.path.join(source, path), 
-                  os.path.join(source, newFolderName))
+def _path_key(path):
+    """Return a normalized path key for collision checks."""
+    return os.path.normcase(os.path.abspath(path))
 
+
+def _validate_plan(operations):
+    """Ensure planned destination paths are unique and currently available."""
+    destinations = {}
+    for operation in operations:
+        dst_key = _path_key(operation.dst)
+        if dst_key in destinations:
+            raise RenamePlanError(
+                'multiple renames target the same path: {}'.format(operation.dst)
+            )
+        destinations[dst_key] = operation
+
+        if os.path.lexists(operation.dst):
+            raise RenamePlanError(
+                'destination already exists: {}'.format(operation.dst)
+            )
+
+
+def build_rename_plan(source):
+    """Build and validate all file and folder rename operations for *source*."""
+    if not os.path.isdir(source):
+        raise RenamePlanError('"{}" is not a valid directory.'.format(source))
+
+    operations = []
+    for path in sorted(os.listdir(source)):
+        full_path = os.path.join(source, path)
+        if not os.path.isdir(full_path):
+            continue
+
+        for item in sorted(os.listdir(full_path)):
+            if item.lower() in SKIP_NAMES:
+                continue
+            new_file_name = fileNameCleaner(item)
+            if new_file_name != item:
+                operations.append(RenameOperation(
+                    os.path.join(source, path, item),
+                    os.path.join(source, path, new_file_name),
+                    'file'
+                ))
+
+        new_folder_name = folderNameCleaner(path)
+        if new_folder_name != path:
+            operations.append(RenameOperation(
+                os.path.join(source, path),
+                os.path.join(source, new_folder_name),
+                'folder'
+            ))
+
+    _validate_plan(operations)
+    return operations
+
+
+def renamer(source, dry_run=False):
+    """Rename all movie folders and their files under *source*.
+
+    For each immediate subdirectory of *source*, renames every file inside
+    it (skipping entries in :data:`SKIP_NAMES`) using :func:`fileNameCleaner`,
+    then renames the subdirectory itself using :func:`folderNameCleaner`.
+
+    :param source: Path to the root directory containing movie folders.
+    :type source: str
+    :param dry_run: When ``True``, print planned renames but do not apply them.
+    :type dry_run: bool
+    :returns: ``True`` if planning and execution completed successfully.
+    :rtype: bool
+    """
+    try:
+        operations = build_rename_plan(source)
+    except RenamePlanError as exc:
+        print('Error: {}'.format(exc))
+        return False
+
+    for operation in operations:
+        message = '{} -> {}'.format(
+            os.path.basename(operation.src),
+            os.path.basename(operation.dst)
+        )
+        if dry_run:
+            print('[dry-run] Would rename {}'.format(message))
+        else:
+            print('Renaming {}'.format(message))
+            os.rename(operation.src, operation.dst)
+
+    return True
+
+
+def main():
+    """Entry point for mrenamer."""
+    source = input('Source Directory: ')
+    preview = input('Preview renames before applying? [y/n]: ').strip().lower()
+    if preview == 'y':
+        print('\n--- Dry run ---')
+        if not renamer(source, dry_run=True):
+            sys.exit(1)
+        confirm = input('\nProceed with renames? [y/n]: ').strip().lower()
+        if confirm != 'y':
+            print('Aborted.')
+            sys.exit(0)
+
+    if not renamer(source):
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

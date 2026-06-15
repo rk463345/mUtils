@@ -1,0 +1,16 @@
+[project]
+name = "mutils"
+version = "0.1.0"
+description = "Movie library utility scripts."
+readme = "README"
+requires-python = ">=3.10"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
