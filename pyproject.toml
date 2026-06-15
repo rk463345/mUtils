@@ -10,6 +10,9 @@ dependencies = []
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["mutils"]
+
 [project.scripts]
 mdiffer = "mutils.mdiffer:main"
 mremover = "mutils.mremover:main"
@@ -18,6 +21,7 @@ msymlinker = "mutils.msymlinker:main"
 mgui = "mutils.gui:main"
 mtui = "mutils.tui:main"
 mutils-setup = "mutils.setup:main"
+mwui = "mutils.web:main"
 
 [dependency-groups]
 dev = [

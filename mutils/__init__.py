@@ -5,4 +5,5 @@ __all__ = [
     'mremover',
     'mrenamer',
     'msymlinker',
+    'web',
 ]

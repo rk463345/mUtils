@@ -61,3 +61,16 @@
 - [x] Add `--json` output mode.
 - [x] Document setup command and platform-specific optional checks.
 - [x] Add tests for setup checks and JSON output.
+
+## Web GUI Tasks
+
+- [x] Add a web GUI implementation in `mutils/web.py`.
+- [x] Add a top-level compatibility wrapper named `mwui.py`.
+- [x] Add a `mwui = "mutils.web:main"` console script entry point.
+- [x] Choose and add the web dependency, keeping it lightweight and cross-platform.
+- [x] Expose web forms for `mdiffer`, `mremover`, `mrenamer`, and `msymlinker`.
+- [x] Default destructive actions to preview/dry-run mode in the web UI.
+- [x] Require explicit confirmation for delete and rename actions.
+- [x] Render structured tool results as HTML without relying on captured stdout.
+- [x] Add request-level tests for the web routes and destructive-action safeguards.
+- [x] Document `uv run mwui` and `uv run python mwui.py` usage in the README.

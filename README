@@ -35,6 +35,7 @@ uv run mrenamer "D:\Movies" --dry-run
 uv run mrenamer "D:\Movies" --yes
 uv run msymlinker "D:\Movies" "Movie (2023)" "E:\Links" "Movie (2023)"
 uv run mutils-setup --check-only
+uv run mwui
 ```
 
 The old top-level scripts remain as compatibility wrappers, so commands like
@@ -65,6 +66,12 @@ mutils-setup - creates and checks the runtime `log/` and `output/` directories,
 verifies required imports, reports optional GUI/TUI support, and checks symlink
 capability. Optional platform checks are reported as warnings rather than hard
 failures.
+
+mwui - starts a dependency-free browser UI at `http://127.0.0.1:8000/` by
+default. The web UI exposes `mdiffer`, `mremover`, `mrenamer`, and `msymlinker`.
+Delete and rename actions default to preview mode and require typing `CONFIRM`
+before the web UI will run them destructively. The top-level `mwui.py` wrapper
+also works with `uv run python mwui.py`.
 
 ## Layout
 
