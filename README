@@ -1,9 +1,14 @@
-Collection of Tools to manage movies.
+Collection of tools to manage movies.
 
-mdiffer - displays dupes between two directories.
+mdiffer - displays duplicate movie names between two directories. Results are
+written to the repository-local output directory.
 
-mremover - removes files with certain extensions in a given directory
+mremover - recursively removes files with a given extension from a directory,
+including matching files directly inside the source directory. Use the preview
+prompt before deleting.
 
-mrenamer - renames the folder and movie file
+mrenamer - renames scene-style movie folders and files to the `Title (Year)`
+format.
 
-msymlinker - symlinks the the folder from the new location to the original location. (WIP)
+msymlinker - symlinks a folder from a new location to the original location.
+On Windows, symlink creation may require Developer Mode or an elevated shell.

@@ -40,6 +40,19 @@ class RenamePlanError(ValueError):
     """Raised when a rename plan cannot be applied safely."""
 
 
+@dataclass(frozen=True)
+class RenameResult:
+    """Structured result for a rename run."""
+
+    success: bool
+    operations: list
+    dry_run: bool
+    error: str = ''
+
+    def __bool__(self):
+        return self.success
+
+
 def _strip_encoding_tags(parts):
     """Remove resolution/encoding tags and all tokens that follow them.
 
@@ -194,27 +207,38 @@ def renamer(source, dry_run=False):
     :type source: str
     :param dry_run: When ``True``, print planned renames but do not apply them.
     :type dry_run: bool
-    :returns: ``True`` if planning and execution completed successfully.
-    :rtype: bool
+    :returns: Structured result describing planned and applied renames.
+    :rtype: RenameResult
     """
     try:
         operations = build_rename_plan(source)
     except RenamePlanError as exc:
-        print('Error: {}'.format(exc))
-        return False
+        return RenameResult(False, [], dry_run, str(exc))
 
     for operation in operations:
-        message = '{} -> {}'.format(
+        if not dry_run:
+            try:
+                os.rename(operation.src, operation.dst)
+            except OSError as exc:
+                return RenameResult(False, operations, dry_run, str(exc))
+
+    return RenameResult(True, operations, dry_run)
+
+
+def format_rename_result(result):
+    """Return human-readable output for a :class:`RenameResult`."""
+    if not result.success:
+        return 'Error: {}'.format(result.error)
+
+    action = 'Would rename' if result.dry_run else 'Renamed'
+    lines = ['{} item(s): {}'.format(action, len(result.operations))]
+    for operation in result.operations:
+        lines.append('{} {} -> {}'.format(
+            '[dry-run]' if result.dry_run else operation.kind,
             os.path.basename(operation.src),
             os.path.basename(operation.dst)
-        )
-        if dry_run:
-            print('[dry-run] Would rename {}'.format(message))
-        else:
-            print('Renaming {}'.format(message))
-            os.rename(operation.src, operation.dst)
-
-    return True
+        ))
+    return '\n'.join(lines)
 
 
 def main():
@@ -223,14 +247,18 @@ def main():
     preview = input('Preview renames before applying? [y/n]: ').strip().lower()
     if preview == 'y':
         print('\n--- Dry run ---')
-        if not renamer(source, dry_run=True):
+        result = renamer(source, dry_run=True)
+        print(format_rename_result(result))
+        if not result:
             sys.exit(1)
         confirm = input('\nProceed with renames? [y/n]: ').strip().lower()
         if confirm != 'y':
             print('Aborted.')
             sys.exit(0)
 
-    if not renamer(source):
+    result = renamer(source)
+    print(format_rename_result(result))
+    if not result:
         sys.exit(1)
 
 

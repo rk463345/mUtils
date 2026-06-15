@@ -50,7 +50,15 @@ def test_renamer_dry_run_does_not_change_files(tmp_path):
     movie_file = folder / 'Movie.Name.2023.1080p.mkv'
     movie_file.write_text('data')
 
-    assert mrenamer.renamer(str(tmp_path), dry_run=True) is True
+    result = mrenamer.renamer(str(tmp_path), dry_run=True)
 
+    assert result.success is True
+    assert len(result.operations) == 2
     assert folder.exists()
     assert movie_file.exists()
+
+
+def test_format_rename_result_reports_errors():
+    result = mrenamer.RenameResult(False, [], False, 'bad plan')
+
+    assert mrenamer.format_rename_result(result) == 'Error: bad plan'

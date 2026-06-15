@@ -4,25 +4,40 @@
 import os
 import re
 import sys
+from dataclasses import dataclass
 
-LOG_DIR = './log'
-OUTPUT_DIR = './output'
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_DIR = os.path.join(SCRIPT_DIR, 'log')
+OUTPUT_DIR = os.path.join(SCRIPT_DIR, 'output')
 TRAILING_YEAR_RE = re.compile(r'\s+\(\d{4}\)$')
 
 
-def setup():
+class MUtilsError(ValueError):
+    """Raised when a tool cannot complete because of invalid input or I/O."""
+
+
+@dataclass(frozen=True)
+class DiffResult:
+    """Structured result for a duplicate scan."""
+
+    primary_dir: str
+    secondary_dir: str
+    duplicates: list
+    output_path: str
+    log_path: str
+
+
+def setup(output_dir=OUTPUT_DIR, log_dir=LOG_DIR):
     """Create the output and log directories if they do not already exist.
 
-    :raises SystemExit: If the directories cannot be created due to a
+    :raises MUtilsError: If the directories cannot be created due to a
         permissions error or other OS-level failure.
     """
     try:
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        os.makedirs(LOG_DIR, exist_ok=True)
-        print('Setup complete.')
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(log_dir, exist_ok=True)
     except OSError as e:
-        print('Error during setup: {}'.format(e))
-        sys.exit(1)
+        raise MUtilsError('error during setup: {}'.format(e))
 
 
 def get_dir_listing(directory):
@@ -32,11 +47,10 @@ def get_dir_listing(directory):
     :type directory: str
     :returns: List of file and folder names inside *directory*.
     :rtype: list
-    :raises SystemExit: If *directory* does not exist or cannot be read.
+    :raises MUtilsError: If *directory* does not exist or cannot be read.
     """
     if not os.path.isdir(directory):
-        print('Error: "{}" is not a valid directory.'.format(directory))
-        sys.exit(1)
+        raise MUtilsError('"{}" is not a valid directory.'.format(directory))
     return os.listdir(directory)
 
 
@@ -66,7 +80,12 @@ def clean_names(names, log=None):
     return cleaned
 
 
-def find_duplicates(secondary, primary):
+def _match_key(name, case_sensitive=False):
+    """Return a comparison key for duplicate matching."""
+    return name if case_sensitive else name.casefold()
+
+
+def find_duplicates(secondary, primary, case_sensitive=False):
     """Find names that appear in both the secondary and primary lists.
 
     Uses a set for O(n) average-case lookup instead of O(n^2) nested loops,
@@ -76,23 +95,75 @@ def find_duplicates(secondary, primary):
     :type secondary: list
     :param primary: Cleaned names from the primary movie directory.
     :type primary: list
+    :param case_sensitive: When ``True``, require exact case-sensitive matches.
+    :type case_sensitive: bool
     :returns: List of names present in both *secondary* and *primary*.
     :rtype: list
     """
-    primary_set = set(primary)
-    return [name for name in secondary if name in primary_set]
+    primary_set = {_match_key(name, case_sensitive) for name in primary}
+    return [
+        name for name in secondary
+        if _match_key(name, case_sensitive) in primary_set
+    ]
 
 
-def write_results(duplicates):
+def write_results(duplicates, output_dir=OUTPUT_DIR):
     """Write the list of duplicate names to ``output/dupes.txt``.
 
     :param duplicates: List of duplicate movie folder names to write.
     :type duplicates: list
+    :param output_dir: Directory where ``dupes.txt`` should be written.
+    :type output_dir: str
+    :returns: The path to the written file.
+    :rtype: str
     """
-    output_path = os.path.join(OUTPUT_DIR, 'dupes.txt')
+    output_path = os.path.join(output_dir, 'dupes.txt')
     with open(output_path, 'w') as f:
         for name in duplicates:
             f.write('{}\n'.format(name))
+    return output_path
+
+
+def run_diff(primary_dir, secondary_dir, output_dir=OUTPUT_DIR, log_dir=LOG_DIR,
+             case_sensitive=False):
+    """Run the duplicate scan and return a structured result."""
+    setup(output_dir, log_dir)
+
+    primary_names = get_dir_listing(primary_dir)
+    secondary_names = get_dir_listing(secondary_dir)
+
+    log_path = os.path.join(log_dir, 'log.txt')
+    with open(log_path, 'w') as log:
+        clean_primary = clean_names(primary_names, log)
+        clean_secondary = clean_names(secondary_names, log)
+
+    duplicates = find_duplicates(
+        clean_secondary,
+        clean_primary,
+        case_sensitive=case_sensitive
+    )
+    output_path = write_results(duplicates, output_dir=output_dir)
+
+    return DiffResult(
+        primary_dir=primary_dir,
+        secondary_dir=secondary_dir,
+        duplicates=duplicates,
+        output_path=output_path,
+        log_path=log_path,
+    )
+
+
+def format_diff_result(result):
+    """Return human-readable output for a :class:`DiffResult`."""
+    lines = [
+        'Total duplicates found: {}'.format(len(result.duplicates)),
+        'Results written to: {}'.format(result.output_path),
+        'Log written to: {}'.format(result.log_path),
+    ]
+    if result.duplicates:
+        lines.append('')
+        lines.extend(result.duplicates)
+    return '\n'.join(lines)
 
 
 def get_dir(prompt):
@@ -108,30 +179,16 @@ def get_dir(prompt):
 
 def main():
     """Entry point for mdiffer."""
-    setup()
-
     primary_dir = get_dir('primary movie directory')
     secondary_dir = get_dir('secondary movie directory')
 
-    print('Reading directories...')
-    primary_names = get_dir_listing(primary_dir)
-    secondary_names = get_dir_listing(secondary_dir)
+    try:
+        result = run_diff(primary_dir, secondary_dir)
+    except MUtilsError as exc:
+        print('Error: {}'.format(exc))
+        sys.exit(1)
 
-    print('Cleaning names...')
-    log_path = os.path.join(LOG_DIR, 'log.txt')
-    with open(log_path, 'w') as log:
-        clean_primary = clean_names(primary_names, log)
-        clean_secondary = clean_names(secondary_names, log)
-
-    print('Finding duplicates...')
-    duplicates = find_duplicates(clean_secondary, clean_primary)
-
-    print('Writing results...')
-    write_results(duplicates)
-
-    print('\nDone! Total duplicates found: {}\n'.format(len(duplicates)))
-    for name in duplicates:
-        print(name)
+    print(format_diff_result(result))
 
 
 if __name__ == '__main__':

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import mremover
 
 
@@ -9,7 +7,10 @@ def test_remover_rejects_empty_extension(tmp_path):
     target = movie_dir / 'keep.mkv'
     target.write_text('data')
 
-    assert mremover.remover(str(tmp_path), '', dry_run=True) is False
+    result = mremover.remover(str(tmp_path), '', dry_run=True)
+
+    assert result.success is False
+    assert 'extension must not be empty' in result.error
     assert target.exists()
 
 
@@ -19,5 +20,24 @@ def test_remover_normalizes_extension(tmp_path):
     target = movie_dir / 'remove.nfo'
     target.write_text('data')
 
-    assert mremover.remover(str(tmp_path), 'nfo', dry_run=True) is True
+    result = mremover.remover(str(tmp_path), 'nfo', dry_run=True)
+
+    assert result.success is True
+    assert result.matched_paths == [str(target)]
     assert target.exists()
+
+
+def test_remover_recurses_and_includes_source_directory(tmp_path):
+    direct = tmp_path / 'direct.nfo'
+    direct.write_text('data')
+    nested_dir = tmp_path / 'Movie'
+    nested_dir.mkdir()
+    nested = nested_dir / 'nested.nfo'
+    nested.write_text('data')
+
+    result = mremover.remover(str(tmp_path), '.nfo')
+
+    assert result.success is True
+    assert sorted(result.removed_paths) == sorted([str(direct), str(nested)])
+    assert not direct.exists()
+    assert not nested.exists()

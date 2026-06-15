@@ -3,6 +3,21 @@
 
 import os
 import sys
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class RemoveResult:
+    """Structured result for a removal run."""
+
+    success: bool
+    matched_paths: list
+    removed_paths: list
+    dry_run: bool
+    error: str = ''
+
+    def __bool__(self):
+        return self.success
 
 
 def _normalize_extension(extension):
@@ -18,9 +33,8 @@ def _normalize_extension(extension):
 def remover(src, extension, dry_run=False):
     """Remove all files ending with *extension* inside *src*.
 
-    Walks one level deep — each immediate subdirectory of *src* is scanned
-    for matching files.  Optionally runs in dry-run mode, which prints what
-    would be deleted without actually deleting anything.
+    Walks *src* recursively, including files directly inside *src*.  Optionally
+    runs in dry-run mode, which reports matches without deleting anything.
 
     :param src: The root directory whose subdirectories will be searched.
     :type src: str
@@ -28,37 +42,47 @@ def remover(src, extension, dry_run=False):
     :type extension: str
     :param dry_run: When ``True``, print matching files but do not delete them.
     :type dry_run: bool
-    :returns: ``True`` if the operation completed without error, ``False`` otherwise.
-    :rtype: bool
+    :returns: Structured result describing matched and removed files.
+    :rtype: RemoveResult
     """
     if not os.path.isdir(src):
-        print('Error: "{}" is not a valid directory.'.format(src))
-        return False
+        return RemoveResult(False, [], [], dry_run,
+                            '"{}" is not a valid directory.'.format(src))
 
     extension = _normalize_extension(extension)
     if extension is None:
-        print('Error: extension must not be empty.')
-        return False
+        return RemoveResult(False, [], [], dry_run,
+                            'extension must not be empty.')
 
+    matched_paths = []
+    removed_paths = []
     try:
-        dirs = os.listdir(src)
-        for path in dirs:
-            full_path = os.path.join(src, path)
-            if not os.path.isdir(full_path):
-                continue
-            for item in os.listdir(full_path):
+        for root, _, files in os.walk(src):
+            for item in files:
                 if item.endswith(extension):
-                    target = os.path.join(src, path, item)
-                    if dry_run:
-                        print('[dry-run] Would remove: {}'.format(target))
-                    else:
-                        print('Removing: {}'.format(target))
+                    target = os.path.join(root, item)
+                    matched_paths.append(target)
+                    if not dry_run:
                         os.remove(target)
-        return True
+                        removed_paths.append(target)
+        return RemoveResult(True, matched_paths, removed_paths, dry_run)
 
     except (OSError, PermissionError) as e:
-        print('Error: {}'.format(e))
-        return False
+        return RemoveResult(False, matched_paths, removed_paths, dry_run, str(e))
+
+
+def format_remove_result(result):
+    """Return human-readable output for a :class:`RemoveResult`."""
+    if not result.success:
+        return 'Error: {}'.format(result.error)
+
+    action = 'Would remove' if result.dry_run else 'Removed'
+    paths = result.matched_paths if result.dry_run else result.removed_paths
+    lines = ['{} file(s): {}'.format(action, len(paths))]
+    for path in paths:
+        prefix = '[dry-run] Would remove' if result.dry_run else 'Removed'
+        lines.append('{}: {}'.format(prefix, path))
+    return '\n'.join(lines)
 
 
 def main():
@@ -69,13 +93,15 @@ def main():
     preview = input('Preview files before deleting? [y/n]: ').strip().lower()
     if preview == 'y':
         print('\n--- Dry run ---')
-        remover(source, ext, dry_run=True)
+        print(format_remove_result(remover(source, ext, dry_run=True)))
         confirm = input('\nProceed with deletion? [y/n]: ').strip().lower()
         if confirm != 'y':
             print('Aborted.')
             sys.exit(0)
 
-    if remover(source, ext):
+    result = remover(source, ext)
+    print(format_remove_result(result))
+    if result:
         print('Complete.')
     else:
         print('Something went wrong.')
