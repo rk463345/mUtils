@@ -14,6 +14,32 @@ Run the test suite:
 uv run pytest
 ```
 
+Create and validate runtime directories and optional platform support:
+
+```powershell
+uv run mutils-setup
+uv run mutils-setup --check-only
+uv run mutils-setup --json
+```
+
+## CLI Usage
+
+All tools can still run interactively with no arguments. They also accept
+command-line arguments through package console scripts:
+
+```powershell
+uv run mdiffer "D:\Movies" "E:\Movies"
+uv run mremover "D:\Movies" .nfo --dry-run --exclude "D:\Movies\keep,comma"
+uv run mremover "D:\Movies" .nfo --yes --exclude "D:\Movies\keep"
+uv run mrenamer "D:\Movies" --dry-run
+uv run mrenamer "D:\Movies" --yes
+uv run msymlinker "D:\Movies" "Movie (2023)" "E:\Links" "Movie (2023)"
+uv run mutils-setup --check-only
+```
+
+The old top-level scripts remain as compatibility wrappers, so commands like
+`uv run python mremover.py ...` still work.
+
 mdiffer - displays duplicate movie names between two directories. Results are
 written to the repository-local output directory. Existing result and log files
 are preserved by creating a new suffixed file when needed.
@@ -21,8 +47,10 @@ are preserved by creating a new suffixed file when needed.
 mremover - recursively removes files with a given extension from a directory,
 including matching files directly inside the source directory. Extension
 matching is case-insensitive by default. Optional comma-separated exclusions can
-skip protected paths. Use the preview prompt before deleting; deleting without a
-preview requires typing `DELETE`.
+skip protected paths in the GUI/TUI. In CLI mode, use repeated `--exclude`
+flags so excluded paths may contain commas. Use the preview prompt before
+deleting; deleting without a preview requires typing `DELETE` interactively or
+passing `--yes` in CLI mode.
 
 mrenamer - renames scene-style movie folders and files to the `Title (Year)`
 format. If a rename fails after earlier renames have succeeded, the tool
@@ -33,8 +61,12 @@ releases commonly use those names for non-movie content.
 msymlinker - symlinks a folder from a new location to the original location.
 On Windows, symlink creation may require Developer Mode or an elevated shell.
 
+mutils-setup - creates and checks the runtime `log/` and `output/` directories,
+verifies required imports, reports optional GUI/TUI support, and checks symlink
+capability. Optional platform checks are reported as warnings rather than hard
+failures.
+
 ## Layout
 
-The tools currently stay as top-level scripts because the project is still a
-small script collection. If the toolset grows, moving them into a package with
-console entry points would make imports, testing, and distribution cleaner.
+The implementation lives in the `mutils` package. Top-level files such as
+`mremover.py` are thin compatibility wrappers around package entry points.

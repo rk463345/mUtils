@@ -4,20 +4,20 @@ import pytest
 
 
 def test_gui_module_imports_without_constructing_tk():
-    mgui = importlib.import_module('mgui')
+    mgui = importlib.import_module('mutils.gui')
 
     assert hasattr(mgui, '_run_task')
 
 
 def test_gui_task_runner_returns_text():
-    mgui = importlib.import_module('mgui')
+    mgui = importlib.import_module('mutils.gui')
 
     assert mgui._run_task(lambda: 'done') == 'done'
     assert mgui._run_task(lambda: None) == ''
 
 
 def test_gui_task_runner_formats_errors():
-    mgui = importlib.import_module('mgui')
+    mgui = importlib.import_module('mutils.gui')
 
     def broken():
         raise ValueError('bad input')
@@ -26,7 +26,7 @@ def test_gui_task_runner_formats_errors():
 
 
 def test_gui_mremover_task_passes_exclusions(monkeypatch):
-    mgui = importlib.import_module('mgui')
+    mgui = importlib.import_module('mutils.gui')
     calls = {}
 
     def fake_remover(src, ext, dry_run=False, exclude_paths=None):
@@ -52,7 +52,7 @@ def test_gui_mremover_task_passes_exclusions(monkeypatch):
 
 def test_tui_task_runner_returns_text():
     pytest.importorskip('curses')
-    mtui = importlib.import_module('mtui')
+    mtui = importlib.import_module('mutils.tui')
 
     assert mtui._run_tool(lambda: 'done') == 'done'
     assert mtui._run_tool(lambda: None) == ''
@@ -60,7 +60,7 @@ def test_tui_task_runner_returns_text():
 
 def test_tui_task_runner_formats_errors():
     pytest.importorskip('curses')
-    mtui = importlib.import_module('mtui')
+    mtui = importlib.import_module('mutils.tui')
 
     def broken():
         raise ValueError('bad input')
@@ -70,7 +70,7 @@ def test_tui_task_runner_formats_errors():
 
 def test_tui_mremover_task_passes_exclusions(monkeypatch):
     pytest.importorskip('curses')
-    mtui = importlib.import_module('mtui')
+    mtui = importlib.import_module('mutils.tui')
     calls = {}
 
     def fake_remover(src, ext, dry_run=False, exclude_paths=None):

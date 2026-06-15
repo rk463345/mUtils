@@ -4,5 +4,6 @@ log/
 output/
 .pytest_cache/
 .venv/
+*.egg-info/
 analysis_task.md
 ANALYSIS_TASKS.md

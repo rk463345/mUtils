@@ -1,6 +1,6 @@
 import io
 
-import mdiffer
+from mutils import mdiffer
 
 
 def test_clean_names_removes_only_trailing_year():
@@ -78,3 +78,29 @@ def test_run_diff_does_not_overwrite_existing_outputs(tmp_path):
     assert result.log_path != str(log / 'log.txt')
     assert (output / 'dupes.txt').read_text() == 'existing\n'
     assert (log / 'log.txt').read_text() == 'existing\n'
+
+
+def test_cli_accepts_directories_and_output_options(tmp_path, capsys):
+    primary = tmp_path / 'primary'
+    secondary = tmp_path / 'secondary'
+    output = tmp_path / 'out'
+    log = tmp_path / 'log'
+    primary.mkdir()
+    secondary.mkdir()
+    (primary / 'Movie Title (2023)').mkdir()
+    (secondary / 'Movie Title (2023)').mkdir()
+
+    mdiffer.main([
+        str(primary),
+        str(secondary),
+        '--output-dir',
+        str(output),
+        '--log-dir',
+        str(log),
+        '--overwrite',
+    ])
+
+    stdout = capsys.readouterr().out
+    assert 'Total duplicates found: 1' in stdout
+    assert (output / 'dupes.txt').read_text() == 'Movie Title\n'
+    assert (log / 'log.txt').exists()

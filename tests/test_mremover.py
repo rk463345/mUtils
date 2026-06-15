@@ -1,6 +1,6 @@
 import pytest
 
-import mremover
+from mutils import mremover
 
 
 def test_remover_rejects_empty_extension(tmp_path):
@@ -20,6 +20,13 @@ def test_parse_exclude_paths_handles_commas_and_empty_values():
     assert mremover.parse_exclude_paths(' one, two ,, three ') == [
         'one',
         'two',
+        'three',
+    ]
+
+
+def test_parse_exclude_paths_supports_quoted_commas():
+    assert mremover.parse_exclude_paths('"one, two", three') == [
+        'one, two',
         'three',
     ]
 
@@ -102,3 +109,30 @@ def test_main_requires_delete_confirmation_without_preview(monkeypatch, tmp_path
 
     assert exc.value.code == 0
     assert target.exists()
+
+
+def test_cli_dry_run_accepts_repeated_excludes_with_commas(tmp_path, capsys):
+    keep_dir = tmp_path / 'keep,comma'
+    remove_dir = tmp_path / 'remove'
+    keep_dir.mkdir()
+    remove_dir.mkdir()
+    keep = keep_dir / 'keep.nfo'
+    remove = remove_dir / 'remove.nfo'
+    keep.write_text('data')
+    remove.write_text('data')
+
+    with pytest.raises(SystemExit) as exc:
+        mremover.main([
+            str(tmp_path),
+            '.nfo',
+            '--dry-run',
+            '--exclude',
+            str(keep_dir),
+        ])
+
+    assert exc.value.code == 0
+    output = capsys.readouterr().out
+    assert str(remove) in output
+    assert str(keep) not in output
+    assert keep.exists()
+    assert remove.exists()

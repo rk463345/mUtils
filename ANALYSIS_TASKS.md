@@ -41,3 +41,23 @@
 - [x] Add workflow-level tests for GUI/TUI remover wrappers.
 - [x] Make `mgui` safe to import in headless environments.
 - [x] Keep the current flat script layout documented until the toolset grows enough to justify packaging.
+
+## Package Layout Tasks
+
+- [x] Move implementation modules into the `mutils` package.
+- [x] Update internal imports to package-relative imports.
+- [x] Add console script entry points in `pyproject.toml`.
+- [x] Keep top-level compatibility wrappers for existing `python *.py` usage.
+- [x] Update tests to import package modules directly.
+- [x] Update README examples for package console scripts.
+
+## Setup Command Tasks
+
+- [x] Rename the narrow `mdiffer.setup()` helper to `ensure_output_dirs()`.
+- [x] Add a `mutils-setup` console command.
+- [x] Check Python version, required imports, optional GUI/TUI support, symlink capability, and writable runtime directories.
+- [x] Create runtime `log/` and `output/` directories by default.
+- [x] Add `--check-only` mode.
+- [x] Add `--json` output mode.
+- [x] Document setup command and platform-specific optional checks.
+- [x] Add tests for setup checks and JSON output.

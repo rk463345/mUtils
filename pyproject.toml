@@ -6,9 +6,23 @@ readme = "README"
 requires-python = ">=3.10"
 dependencies = []
 
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+mdiffer = "mutils.mdiffer:main"
+mremover = "mutils.mremover:main"
+mrenamer = "mutils.mrenamer:main"
+msymlinker = "mutils.msymlinker:main"
+mgui = "mutils.gui:main"
+mtui = "mutils.tui:main"
+mutils-setup = "mutils.setup:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "windows-curses>=2.4.2 ; sys_platform == 'win32'",
 ]
 
 [tool.pytest.ini_options]

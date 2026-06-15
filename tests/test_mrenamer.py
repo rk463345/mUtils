@@ -1,6 +1,6 @@
 import os
 
-import mrenamer
+from mutils import mrenamer
 
 
 def test_cleaners_leave_invalid_names_unchanged():
@@ -117,3 +117,26 @@ def test_renamer_rolls_back_file_when_folder_rename_fails(tmp_path, monkeypatch)
     assert folder.exists()
     assert movie_file.exists()
     assert not (folder / 'Movie Name (2023).mkv').exists()
+
+
+def test_cli_dry_run_accepts_source(tmp_path, capsys):
+    folder = tmp_path / 'Movie.Name.2023.1080p'
+    folder.mkdir()
+
+    try:
+        mrenamer.main([str(tmp_path), '--dry-run'])
+    except SystemExit as exc:
+        assert exc.code == 0
+
+    stdout = capsys.readouterr().out
+    assert 'Would rename item(s): 1' in stdout
+    assert folder.exists()
+
+
+def test_cli_requires_confirmation_flag_for_renames(tmp_path):
+    try:
+        mrenamer.main([str(tmp_path)])
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError('expected SystemExit')
