@@ -4,3 +4,5 @@ log/
 output/
 .pytest_cache/
 .venv/
+analysis_task.md
+ANALYSIS_TASKS.md

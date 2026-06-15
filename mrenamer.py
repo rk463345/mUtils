@@ -16,6 +16,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
+from uuid import uuid4
 
 #: Resolution and quality tags that mark the end of the movie title.
 #: Everything from the first matching tag onward is discarded.
@@ -149,14 +150,15 @@ def _validate_plan(operations):
     """Ensure planned destination paths are unique and currently available."""
     destinations = {}
     for operation in operations:
+        src_key = _path_key(operation.src)
         dst_key = _path_key(operation.dst)
-        if dst_key in destinations:
+        if dst_key in destinations and dst_key != src_key:
             raise RenamePlanError(
                 'multiple renames target the same path: {}'.format(operation.dst)
             )
         destinations[dst_key] = operation
 
-        if os.path.lexists(operation.dst):
+        if os.path.lexists(operation.dst) and dst_key != src_key:
             raise RenamePlanError(
                 'destination already exists: {}'.format(operation.dst)
             )
@@ -196,6 +198,52 @@ def build_rename_plan(source):
     return operations
 
 
+def _is_case_only_rename(src, dst):
+    """Return ``True`` for a rename that only changes path casing."""
+    return (
+        _path_key(src) == _path_key(dst)
+        and os.path.abspath(src) != os.path.abspath(dst)
+    )
+
+
+def _temporary_path_for(path):
+    """Return a non-existing temporary path next to *path*."""
+    directory = os.path.dirname(path)
+    basename = os.path.basename(path)
+    while True:
+        candidate = os.path.join(
+            directory,
+            '.mrenamer-{}-{}'.format(uuid4().hex, basename)
+        )
+        if not os.path.lexists(candidate):
+            return candidate
+
+
+def _rename_path(src, dst):
+    """Rename *src* to *dst*, handling case-only renames portably."""
+    if _is_case_only_rename(src, dst):
+        temporary = _temporary_path_for(src)
+        os.rename(src, temporary)
+        try:
+            os.rename(temporary, dst)
+        except OSError:
+            os.rename(temporary, src)
+            raise
+    else:
+        os.rename(src, dst)
+
+
+def _rollback(applied):
+    """Best-effort rollback for already-applied rename operations."""
+    rollback_errors = []
+    for operation in reversed(applied):
+        try:
+            _rename_path(operation.dst, operation.src)
+        except OSError as exc:
+            rollback_errors.append('{}: {}'.format(operation.dst, exc))
+    return rollback_errors
+
+
 def renamer(source, dry_run=False):
     """Rename all movie folders and their files under *source*.
 
@@ -215,12 +263,21 @@ def renamer(source, dry_run=False):
     except RenamePlanError as exc:
         return RenameResult(False, [], dry_run, str(exc))
 
+    applied = []
     for operation in operations:
         if not dry_run:
             try:
-                os.rename(operation.src, operation.dst)
+                _rename_path(operation.src, operation.dst)
+                applied.append(operation)
             except OSError as exc:
-                return RenameResult(False, operations, dry_run, str(exc))
+                rollback_errors = _rollback(applied)
+                error = str(exc)
+                if rollback_errors:
+                    error = '{}; rollback errors: {}'.format(
+                        error,
+                        '; '.join(rollback_errors)
+                    )
+                return RenameResult(False, operations, dry_run, error)
 
     return RenameResult(True, operations, dry_run)
 

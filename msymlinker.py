@@ -37,7 +37,7 @@ def linker(src, old_name, dest_dir, new_name):
     :rtype: LinkResult
     """
     original = os.path.abspath(os.path.join(src, old_name))
-    link = os.path.join(dest_dir, new_name)
+    link = os.path.abspath(os.path.join(dest_dir, new_name))
 
     if not os.path.exists(original):
         return LinkResult(False, original, link,

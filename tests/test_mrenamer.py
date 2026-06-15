@@ -44,6 +44,16 @@ def test_build_rename_plan_rejects_existing_destination(tmp_path):
         raise AssertionError('expected RenamePlanError')
 
 
+def test_validate_plan_allows_case_only_rename():
+    operation = mrenamer.RenameOperation(
+        'Movie Name (2023)',
+        'movie name (2023)',
+        'folder'
+    )
+
+    mrenamer._validate_plan([operation])
+
+
 def test_renamer_dry_run_does_not_change_files(tmp_path):
     folder = tmp_path / 'Movie.Name.2023.1080p'
     folder.mkdir()
@@ -62,3 +72,28 @@ def test_format_rename_result_reports_errors():
     result = mrenamer.RenameResult(False, [], False, 'bad plan')
 
     assert mrenamer.format_rename_result(result) == 'Error: bad plan'
+
+
+def test_renamer_rolls_back_file_when_folder_rename_fails(tmp_path, monkeypatch):
+    folder = tmp_path / 'Movie.Name.2023.1080p'
+    folder.mkdir()
+    movie_file = folder / 'Movie.Name.2023.1080p.mkv'
+    movie_file.write_text('data')
+
+    real_rename = mrenamer.os.rename
+    clean_folder = tmp_path / 'Movie Name (2023)'
+
+    def failing_rename(src, dst):
+        if src == str(folder) and dst == str(clean_folder):
+            raise OSError('simulated folder failure')
+        real_rename(src, dst)
+
+    monkeypatch.setattr(mrenamer.os, 'rename', failing_rename)
+
+    result = mrenamer.renamer(str(tmp_path))
+
+    assert result.success is False
+    assert 'simulated folder failure' in result.error
+    assert folder.exists()
+    assert movie_file.exists()
+    assert not (folder / 'Movie Name (2023).mkv').exists()

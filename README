@@ -1,14 +1,36 @@
 Collection of tools to manage movies.
 
+## Setup
+
+Install the development dependencies with uv:
+
+```powershell
+uv sync
+```
+
+Run the test suite:
+
+```powershell
+uv run pytest
+```
+
 mdiffer - displays duplicate movie names between two directories. Results are
-written to the repository-local output directory.
+written to the repository-local output directory. Existing result and log files
+are preserved by creating a new suffixed file when needed.
 
 mremover - recursively removes files with a given extension from a directory,
-including matching files directly inside the source directory. Use the preview
-prompt before deleting.
+including matching files directly inside the source directory. Extension
+matching is case-insensitive by default. Use the preview prompt before deleting.
 
 mrenamer - renames scene-style movie folders and files to the `Title (Year)`
-format.
+format. If a rename fails after earlier renames have succeeded, the tool
+attempts to roll back the completed renames.
 
 msymlinker - symlinks a folder from a new location to the original location.
 On Windows, symlink creation may require Developer Mode or an elevated shell.
+
+## Layout
+
+The tools currently stay as top-level scripts because the project is still a
+small script collection. If the toolset grows, moving them into a package with
+console entry points would make imports, testing, and distribution cleaner.

@@ -10,5 +10,6 @@ def test_linker_reports_missing_source(tmp_path):
     )
 
     assert result.success is False
+    assert result.link == str(tmp_path / 'link')
     assert 'source path does not exist' in result.error
     assert 'source path does not exist' in msymlinker.format_link_result(result)

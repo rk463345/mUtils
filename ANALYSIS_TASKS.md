@@ -15,3 +15,16 @@
 - [x] Add a test suite for risky parsing and planning behavior.
 - [x] Add `uv` project support.
 - [x] Add generated files and output directories to `.gitignore`.
+
+## Follow-up Analysis Tasks
+
+- [x] Add rollback or transactional handling for partial `mrenamer` failures after one rename succeeds.
+- [x] Handle case-only rename behavior in `mrenamer` on case-insensitive filesystems.
+- [x] Add exclusion support to `mremover` so broad recursive deletes can skip protected paths.
+- [x] Decide whether `mremover` extension matching should be case-insensitive.
+- [x] Clarify or adjust `mdiffer` result casing when a duplicate matches with different casing.
+- [x] Avoid always overwriting `mdiffer` `log/log.txt` and `output/dupes.txt`, or make overwrite behavior explicit.
+- [x] Add tests for GUI/TUI wrapper behavior.
+- [x] Absolutize `msymlinker` link paths in structured results.
+- [x] Document install and test commands such as `uv run pytest` in the README.
+- [x] Consider moving the top-level scripts into a package/module layout if the toolset keeps growing.

@@ -30,7 +30,25 @@ def _normalize_extension(extension):
     return extension
 
 
-def remover(src, extension, dry_run=False):
+def _path_key(path):
+    """Return an absolute normalized path key."""
+    return os.path.normcase(os.path.abspath(path))
+
+
+def _is_excluded(path, exclude_keys):
+    """Return ``True`` when *path* is inside an excluded path."""
+    path_key = _path_key(path)
+    for exclude_key in exclude_keys:
+        try:
+            if os.path.commonpath([path_key, exclude_key]) == exclude_key:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def remover(src, extension, dry_run=False, exclude_paths=None,
+            case_sensitive=False):
     """Remove all files ending with *extension* inside *src*.
 
     Walks *src* recursively, including files directly inside *src*.  Optionally
@@ -42,6 +60,10 @@ def remover(src, extension, dry_run=False):
     :type extension: str
     :param dry_run: When ``True``, print matching files but do not delete them.
     :type dry_run: bool
+    :param exclude_paths: Optional paths to skip while walking *src*.
+    :type exclude_paths: list or None
+    :param case_sensitive: When ``True``, require exact extension casing.
+    :type case_sensitive: bool
     :returns: Structured result describing matched and removed files.
     :rtype: RemoveResult
     """
@@ -54,13 +76,26 @@ def remover(src, extension, dry_run=False):
         return RemoveResult(False, [], [], dry_run,
                             'extension must not be empty.')
 
+    exclude_keys = [_path_key(path) for path in (exclude_paths or [])]
+    extension_key = extension if case_sensitive else extension.casefold()
+
     matched_paths = []
     removed_paths = []
     try:
-        for root, _, files in os.walk(src):
+        for root, dirs, files in os.walk(src):
+            dirs[:] = [
+                directory for directory in dirs
+                if not _is_excluded(os.path.join(root, directory), exclude_keys)
+            ]
+            if _is_excluded(root, exclude_keys):
+                continue
             for item in files:
-                if item.endswith(extension):
-                    target = os.path.join(root, item)
+                target = os.path.join(root, item)
+                if _is_excluded(target, exclude_keys):
+                    continue
+
+                item_key = item if case_sensitive else item.casefold()
+                if item_key.endswith(extension_key):
                     matched_paths.append(target)
                     if not dry_run:
                         os.remove(target)

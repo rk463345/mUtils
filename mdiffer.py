@@ -5,6 +5,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(SCRIPT_DIR, 'log')
@@ -100,24 +101,56 @@ def find_duplicates(secondary, primary, case_sensitive=False):
     :returns: List of names present in both *secondary* and *primary*.
     :rtype: list
     """
-    primary_set = {_match_key(name, case_sensitive) for name in primary}
+    primary_by_key = {}
+    for name in primary:
+        primary_by_key.setdefault(_match_key(name, case_sensitive), name)
     return [
-        name for name in secondary
-        if _match_key(name, case_sensitive) in primary_set
+        primary_by_key[_match_key(name, case_sensitive)]
+        for name in secondary
+        if _match_key(name, case_sensitive) in primary_by_key
     ]
 
 
-def write_results(duplicates, output_dir=OUTPUT_DIR):
+def _available_path(directory, stem, extension):
+    """Return a non-existing path inside *directory*."""
+    path = os.path.join(directory, stem + extension)
+    if not os.path.exists(path):
+        return path
+
+    timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+    path = os.path.join(directory, '{}-{}{}'.format(stem, timestamp, extension))
+    if not os.path.exists(path):
+        return path
+
+    counter = 2
+    while True:
+        path = os.path.join(directory, '{}-{}-{}{}'.format(
+            stem,
+            timestamp,
+            counter,
+            extension
+        ))
+        if not os.path.exists(path):
+            return path
+        counter += 1
+
+
+def write_results(duplicates, output_dir=OUTPUT_DIR, overwrite=False):
     """Write the list of duplicate names to ``output/dupes.txt``.
 
     :param duplicates: List of duplicate movie folder names to write.
     :type duplicates: list
     :param output_dir: Directory where ``dupes.txt`` should be written.
     :type output_dir: str
+    :param overwrite: When ``True``, replace any existing ``dupes.txt``.
+    :type overwrite: bool
     :returns: The path to the written file.
     :rtype: str
     """
-    output_path = os.path.join(output_dir, 'dupes.txt')
+    output_path = (
+        os.path.join(output_dir, 'dupes.txt')
+        if overwrite else _available_path(output_dir, 'dupes', '.txt')
+    )
     with open(output_path, 'w') as f:
         for name in duplicates:
             f.write('{}\n'.format(name))
@@ -125,14 +158,17 @@ def write_results(duplicates, output_dir=OUTPUT_DIR):
 
 
 def run_diff(primary_dir, secondary_dir, output_dir=OUTPUT_DIR, log_dir=LOG_DIR,
-             case_sensitive=False):
+             case_sensitive=False, overwrite=False):
     """Run the duplicate scan and return a structured result."""
     setup(output_dir, log_dir)
 
     primary_names = get_dir_listing(primary_dir)
     secondary_names = get_dir_listing(secondary_dir)
 
-    log_path = os.path.join(log_dir, 'log.txt')
+    log_path = (
+        os.path.join(log_dir, 'log.txt')
+        if overwrite else _available_path(log_dir, 'log', '.txt')
+    )
     with open(log_path, 'w') as log:
         clean_primary = clean_names(primary_names, log)
         clean_secondary = clean_names(secondary_names, log)
@@ -142,7 +178,11 @@ def run_diff(primary_dir, secondary_dir, output_dir=OUTPUT_DIR, log_dir=LOG_DIR,
         clean_primary,
         case_sensitive=case_sensitive
     )
-    output_path = write_results(duplicates, output_dir=output_dir)
+    output_path = write_results(
+        duplicates,
+        output_dir=output_dir,
+        overwrite=overwrite
+    )
 
     return DiffResult(
         primary_dir=primary_dir,
